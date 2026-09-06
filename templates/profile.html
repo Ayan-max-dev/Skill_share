@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.name }} — SkillShare{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h3 class="fw-bold mb-1">{{ profile_user.name }}</h3>
+                <p class="text-muted">{{ profile_user.grade or "Grade not set" }}</p>
+
+                {% if profile_user.average_teaching_rating %}
+                    <p class="mb-3">
+                        <span class="text-warning">★</span>
+                        <strong>{{ profile_user.average_teaching_rating }}</strong>
+                        <span class="text-muted small">({{ profile_user.total_ratings_count }} rating{{ '' if profile_user.total_ratings_count == 1 else 's' }})</span>
+                    </p>
+                {% endif %}
+                {% if profile_user.attended_count or profile_user.no_show_count %}
+                    <p class="text-muted small">
+                        Attendance: {{ profile_user.attended_count }} attended
+                        {% if profile_user.no_show_count %}
+                            · {{ profile_user.no_show_count }} no-show{{ '' if profile_user.no_show_count == 1 else 's' }}
+                        {% endif %}
+                    </p>
+                {% endif %}
+                {% if current_user.is_authenticated and current_user.id == profile_user.id %}
+                    <a href="{{ url_for('edit_profile') }}" class="btn btn-sm btn-outline-primary mb-3">Edit Profile</a>
+                {% endif %}
+
+                <p>{{ profile_user.bio or "No bio yet." }}</p>
+                {% set all_badges = profile_user.teaching_badges + profile_user.learner_badges %}
+                {% if all_badges %}
+                    <div class="mb-3">
+                        {% for badge in all_badges %}
+                            <span class="badge bg-{{ 'success' if 'Completed' in badge else 'primary' }} me-1 mb-1">🏅 {{ badge }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <h6 class="fw-bold mt-4">Courses Completed</h6>
+                <p class="text-muted">{{ profile_user.courses_completed or "Not listed." }}</p>
+
+                <h6 class="fw-bold mt-4">Courses Taught</h6>
+                {% if courses_taught %}
+                    <ul class="list-unstyled">
+                        {% for offer in courses_taught %}
+                            <li><a href="{{ url_for('offer_detail', offer_id=offer.id) }}">{{ offer.title }}</a> — {{ offer.skill.name }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">Hasn't taught anything yet.</p>
+                {% endif %}
+                <h6 class="fw-bold mt-4">Skills Learned</h6>
+                {% if profile_user.skills_learned %}
+                    <ul class="list-unstyled">
+                        {% for entry in profile_user.skills_learned %}
+                            <li>{{ entry.skill }} <span class="text-muted small">— from "{{ entry.offer_title }}", {{ entry.date.strftime('%b %Y') }}</span></li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">Hasn't attended any sessions yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

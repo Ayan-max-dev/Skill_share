@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance — SkillShare{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h4 class="fw-bold mb-1">Mark attendance</h4>
+                <p class="text-muted mb-4">{{ offer.title }} — {{ session.start_time.strftime('%b %d, %Y') }}</p>
+
+                <form method="POST">
+                    {% for enrollment in enrollments %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="attended_{{ enrollment.id }}"
+                                   id="att{{ enrollment.id }}" {{ 'checked' if enrollment.attended }}>
+                            <label class="form-check-label" for="att{{ enrollment.id }}">
+                                {{ enrollment.student.name }}
+                            </label>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No confirmed attendees for this session.</p>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100 mt-3">Save Attendance</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

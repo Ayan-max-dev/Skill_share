@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Schedule a Session — SkillShare{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h3 class="card-title mb-1 fw-bold">Schedule: {{ offer.title }}</h3>
+
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        <div class="alert alert-warning">{{ messages[0] }}</div>
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Start time</label>
+                        <input type="datetime-local" name="start_time" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">End time</label>
+                        <input type="datetime-local" name="end_time" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Meeting link</label>
+                        <input type="url" name="meeting_link" class="form-control" placeholder="https://zoom.us/...">
+                    </div>
+                    <p class="text-muted small">By scheduling this session, you agree to record it and upload the recording link within 48 hours after it ends.</p>
+                    <button type="submit" class="btn btn-primary w-100">Schedule Session</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — SkillShare{% endblock %}
+
+{% block content %}
+<h2 class="fw-bold">Welcome, {{ current_user.name }} 👋</h2>
+<p class="text-muted">What do you want to learn today?</p>
+
+{% if sessions_needing_recording %}
+    <div class="alert alert-warning">
+        <strong>Recording needed:</strong>
+        {% for s in sessions_needing_recording %}
+            <div>
+                {{ s.offer.title }} ({{ s.start_time.strftime('%b %d') }}) —
+                {% if s.recording_status == 'overdue' %}
+                    <span class="text-danger fw-bold">overdue</span>
+                {% else %}
+                    due by {{ s.recording_deadline.strftime('%b %d, %I:%M %p') }}
+                {% endif %}
+                — <a href="{{ url_for('add_recording', session_id=s.id) }}">Add recording</a>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div class="d-flex gap-2 mb-4">
+    <a href="{{ url_for('new_offer') }}" class="btn btn-outline-primary mt-2">Offer to Teach</a>
+    <a href="{{ url_for('explore') }}" class="btn btn-primary mt-2">Explore Skills</a>
+    <a href="{{ url_for('new_request') }}" class="btn btn-outline-secondary mt-2">Request to Learn</a>
+</div>
+
+<h4 class="fw-bold mt-4">Your Offers</h4>
+<div class="row g-3 mb-4">
+    {% for offer in my_offers %}
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <span class="badge bg-{{ 'success' if offer.status == 'open' else 'secondary' }} mb-2">{{ offer.status }}</span>
+                <h6 class="card-title"><a href="{{ url_for('offer_detail', offer_id=offer.id) }}">{{ offer.title }}</a></h6>
+                <p class="text-muted small mb-0">{{ offer.skill.name }} · {{ offer.sessions|length }} session(s)</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted">You haven't posted any offers yet.</p>
+    {% endfor %}
+</div>
+
+<h4 class="fw-bold">Your Requests</h4>
+<div class="row g-3 mb-4">
+    {% for req in my_requests %}
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <span class="badge bg-{{ 'warning' if req.status == 'open' else 'success' }} mb-2">{{ req.status }}</span>
+                <h6 class="card-title">{{ req.skill.name }}</h6>
+                <p class="text-muted small mb-0">{{ req.description or "No details provided." }}</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted">You haven't posted any requests yet.</p>
+    {% endfor %}
+</div>
+
+<h4 class="fw-bold">Your Sessions</h4>
+<div class="row g-3">
+    {% for enrollment in my_enrollments %}
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <span class="badge bg-{{ 'success' if enrollment.status == 'confirmed' else 'warning' }} mb-2">{{ enrollment.status }}</span>
+                <h6 class="card-title"><a href="{{ url_for('offer_detail', offer_id=enrollment.session.offer.id) }}">{{ enrollment.session.offer.title }}</a></h6>
+                <p class="text-muted small mb-0">{{ enrollment.session.start_time.strftime('%b %d, %Y — %I:%M %p') }}</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted">You haven't RSVP'd to any sessions yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}
