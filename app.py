@@ -264,7 +264,10 @@ def schedule_session(offer_id):
 def rsvp_session(session_id):
     session = Session.query.get_or_404(session_id)
     offer = session.offer
-
+    if session.is_cancelled:
+        flash("This session has been cancelled.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+    
     if offer.teacher_id == current_user.id:
         flash("You can't RSVP to your own session.")
         return redirect(url_for("offer_detail", offer_id=offer.id))
@@ -386,6 +389,10 @@ def mark_attendance(session_id):
     session = Session.query.get_or_404(session_id)
     offer = session.offer
 
+    if session.is_cancelled:
+        flash("This session has been cancelled.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+    
     if offer.teacher_id != current_user.id:
         flash("Only the teacher can mark attendance.")
         return redirect(url_for("offer_detail", offer_id=offer.id))
@@ -411,7 +418,10 @@ def mark_attendance(session_id):
 def add_recording(session_id):
     session = Session.query.get_or_404(session_id)
     offer = session.offer
-
+    if session.is_cancelled:
+        flash("This session has been cancelled.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+       
     if offer.teacher_id != current_user.id:
         flash("Only the teacher can add the recording.")
         return redirect(url_for("offer_detail", offer_id=offer.id))
@@ -528,6 +538,38 @@ def add_comment(offer_id):
     db.session.add(comment)
     db.session.commit()
     return redirect(url_for("offer_detail", offer_id=offer.id))
+
+@app.route("/sessions/<int:session_id>/cancel", methods=["GET", "POST"])
+@login_required
+def cancel_session(session_id):
+    session = Session.query.get_or_404(session_id)
+    offer = session.offer
+
+    if offer.teacher_id != current_user.id:
+        flash("Only the teacher can cancel this session.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+
+    if session.has_ended:
+        flash("You can't cancel a session that's already happened.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+
+    if session.is_cancelled:
+        flash("This session is already cancelled.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+
+    if request.method == "POST":
+        reason = request.form.get("reason", "").strip()
+        if not reason:
+            flash("Please provide a reason for cancelling.")
+            return redirect(url_for("cancel_session", session_id=session.id))
+
+        session.status = "cancelled"
+        session.cancelled_reason = reason
+        db.session.commit()
+        flash("Session cancelled. Attendees will see the update.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+
+    return render_template("cancel_session.html", session=session, offer=offer)
 
 if __name__ == "__main__":
     app.run(debug=True)

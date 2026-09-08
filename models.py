@@ -147,6 +147,8 @@ class Session(db.Model):
     end_time = db.Column(db.DateTime, nullable=False)
     meeting_link = db.Column(db.String(300), nullable=True)
     recording_url = db.Column(db.String(300), nullable=True)
+    status = db.Column(db.String(20), default="scheduled")  # scheduled / cancelled
+    cancelled_reason = db.Column(db.Text, nullable=True)
 
     offer = db.relationship("Offer", backref="sessions")
 
@@ -157,11 +159,17 @@ class Session(db.Model):
         return self.end_time < datetime.now()
 
     @property
+    def is_cancelled(self):
+        return self.status == "cancelled"
+
+    @property
     def recording_deadline(self):
         return self.end_time + timedelta(hours=self.RECORDING_GRACE_HOURS)
 
     @property
     def recording_status(self):
+        if self.is_cancelled:
+            return "cancelled"
         if not self.has_ended:
             return "not_yet"
         if self.recording_url:
