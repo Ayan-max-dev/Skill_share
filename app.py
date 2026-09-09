@@ -1,9 +1,11 @@
 import os
 from datetime import datetime
 from functools import wraps
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_wtf.csrf import CSRFProtect
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Skill, Offer, Request, Session, Enrollment, RequestUpvote, Feedback, Lesson, Comment
 
@@ -17,10 +19,35 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///skillshare.db"
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-only-for-local-dev")
 
 db.init_app(app)
+csrf = CSRFProtect(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
+ALLOWED_CATEGORIES = {"Academic", "Non-academic"}
+ALLOWED_FORMATS = {"live", "recorded"}
+ALLOWED_LEVELS = {"Beginner", "Intermediate", "Advanced"}
+
+
+def bounded_text(value, max_length):
+    value = (value or "").strip()
+    return value if len(value) <= max_length else None
+
+
+def positive_int(value, minimum=1, maximum=50):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None
+    return value if minimum <= value <= maximum else None
+
+
+def valid_url(value, max_length=300):
+    if not value or len(value) > max_length:
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 def require_complete_profile(f):
     @wraps(f)
@@ -47,9 +74,13 @@ def add_user():
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
-        name = request.form["name"]
-        email = request.form["email"]
-        password = request.form["password"]
+        name = bounded_text(request.form.get("name"), 100)
+        email = bounded_text(request.form.get("email"), 120)
+        password = request.form.get("password", "")
+
+        if not name or not email or "@" not in email or not 8 <= len(password) <= 128:
+            flash("Enter a valid name, email, and password (8–128 characters).")
+            return redirect(url_for("add_user"))
 
         if User.query.filter_by(email=email).first():
             flash("An account with that email already exists.")
@@ -70,8 +101,11 @@ def login():
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
+        email = bounded_text(request.form.get("email"), 120)
+        password = request.form.get("password", "")
+        if not email or not password or len(password) > 128:
+            flash("Enter your email and password.")
+            return redirect(url_for("login"))
         user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
@@ -115,7 +149,14 @@ def explore():
     category = request.args.get("category")
     format_filter = request.args.get("format")
     level_filter = request.args.get("level")
-    search_query = request.args.get("q", "").strip()
+    search_query = bounded_text(request.args.get("q", ""), 100) or ""
+
+    if category not in ALLOWED_CATEGORIES:
+        category = None
+    if format_filter not in ALLOWED_FORMATS:
+        format_filter = None
+    if level_filter not in ALLOWED_LEVELS:
+        level_filter = None
 
     offers_query = Offer.query.join(Skill).filter(Offer.status == "open")
     requests_query = Request.query.join(Skill).filter(Request.status == "open")
@@ -163,7 +204,7 @@ def explore():
 
 @app.route("/requests/search-similar")
 def search_similar_requests():
-    query = request.args.get("q", "").strip()
+    query = bounded_text(request.args.get("q", ""), 100) or ""
     if len(query) < 2:
         return jsonify([])
 
@@ -191,13 +232,13 @@ def search_similar_requests():
 @login_required
 def new_request():
     if request.method == "POST":
-        skill_name = request.form["skill_name"].strip()
-        category = request.form["category"]
-        description = request.form.get("description", "").strip()
-        preferred_time = request.form.get("preferred_time", "").strip()
+        skill_name = bounded_text(request.form.get("skill_name"), 100)
+        category = request.form.get("category")
+        description = bounded_text(request.form.get("description"), 2000)
+        preferred_time = bounded_text(request.form.get("preferred_time"), 100)
 
-        if not skill_name:
-            flash("Skill is required.")
+        if not skill_name or category not in ALLOWED_CATEGORIES or description is None or preferred_time is None:
+            flash("Enter a valid skill, category, description, and preferred time.")
             return redirect(url_for("new_request"))
 
         skill = Skill.query.filter(db.func.lower(Skill.name) == skill_name.lower()).first()
@@ -234,12 +275,20 @@ def schedule_session(offer_id):
         return redirect(url_for("offer_detail", offer_id=offer.id))
 
     if request.method == "POST":
-        start_str = request.form["start_time"]
-        end_str = request.form["end_time"]
-        meeting_link = request.form.get("meeting_link", "").strip()
+        start_str = bounded_text(request.form.get("start_time"), 16)
+        end_str = bounded_text(request.form.get("end_time"), 16)
+        meeting_link = bounded_text(request.form.get("meeting_link"), 300)
 
-        start_time = datetime.strptime(start_str, "%Y-%m-%dT%H:%M")
-        end_time = datetime.strptime(end_str, "%Y-%m-%dT%H:%M")
+        if not start_str or not end_str or meeting_link is None or (meeting_link and not valid_url(meeting_link)):
+            flash("Enter valid start, end, and meeting link values.")
+            return redirect(url_for("schedule_session", offer_id=offer.id))
+
+        try:
+            start_time = datetime.strptime(start_str, "%Y-%m-%dT%H:%M")
+            end_time = datetime.strptime(end_str, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            flash("Enter valid start and end times.")
+            return redirect(url_for("schedule_session", offer_id=offer.id))
 
         if end_time <= start_time:
             flash("End time must be after start time.")
@@ -310,9 +359,16 @@ def view_profile(user_id):
 @login_required
 def edit_profile():
     if request.method == "POST":
-        current_user.bio = request.form.get("bio", "").strip()
-        current_user.grade = request.form.get("grade", "").strip()
-        current_user.courses_completed = request.form.get("courses_completed", "").strip()
+        bio = bounded_text(request.form.get("bio"), 2000)
+        grade = bounded_text(request.form.get("grade"), 20)
+        courses_completed = bounded_text(request.form.get("courses_completed"), 1000)
+        if not grade or not courses_completed or bio is None:
+            flash("Enter a valid grade, courses list, and bio.")
+            return redirect(url_for("edit_profile"))
+
+        current_user.bio = bio
+        current_user.grade = grade
+        current_user.courses_completed = courses_completed
         db.session.commit()
         flash("Profile updated!")
         return redirect(url_for("dashboard"))
@@ -369,10 +425,10 @@ def session_feedback(session_id):
 
     if request.method == "POST":
         rating = request.form.get("rating", type=int)
-        comment = request.form.get("comment", "").strip()
+        comment = bounded_text(request.form.get("comment"), 2000)
 
-        if not rating or rating < 1 or rating > 5:
-            flash("Please select a star rating.")
+        if rating is None or not 1 <= rating <= 5 or comment is None:
+            flash("Select a rating from 1 to 5 and keep the comment within 2,000 characters.")
             return redirect(url_for("session_feedback", session_id=session.id))
 
         feedback = Feedback(session_id=session.id, student_id=current_user.id, rating=rating, comment=comment)
@@ -431,9 +487,9 @@ def add_recording(session_id):
         return redirect(url_for("offer_detail", offer_id=offer.id))
 
     if request.method == "POST":
-        url = request.form.get("recording_url", "").strip()
-        if not url:
-            flash("Please paste a recording link.")
+        url = bounded_text(request.form.get("recording_url"), 300)
+        if not url or not valid_url(url):
+            flash("Please paste a valid HTTP or HTTPS recording link.")
             return redirect(url_for("add_recording", session_id=session.id))
 
         session.recording_url = url
@@ -450,18 +506,23 @@ def new_offer():
     request_id = request.values.get("request_id", type=int)
     fulfilling_request = Request.query.get(request_id) if request_id else None
     offer_format = request.values.get("format", "live")
+    if offer_format not in ALLOWED_FORMATS:
+        offer_format = "live"
 
     if request.method == "POST":
-        skill_name = request.form["skill_name"].strip()
-        category = request.form["category"]
-        title = request.form["title"].strip()
-        description = request.form.get("description", "").strip()
-        level = request.form["level"]
+        skill_name = bounded_text(request.form.get("skill_name"), 100)
+        category = request.form.get("category")
+        title = bounded_text(request.form.get("title"), 150)
+        description = bounded_text(request.form.get("description"), 2000)
+        level = request.form.get("level")
         format_choice = request.form.get("format", "live")
-        max_attendees = request.form.get("max_attendees", 10)
+        max_attendees = positive_int(request.form.get("max_attendees", 10))
 
-        if not skill_name or not title:
-            flash("Skill and title are required.")
+        if (not skill_name or category not in ALLOWED_CATEGORIES or not title or
+                description is None or level not in ALLOWED_LEVELS or
+                format_choice not in ALLOWED_FORMATS or
+            max_attendees is None):
+            flash("Enter valid offer details, level, format, and attendee limit.")
             return redirect(url_for("new_offer"))
 
         skill = Skill.query.filter(db.func.lower(Skill.name) == skill_name.lower()).first()
@@ -476,7 +537,7 @@ def new_offer():
             title=title,
             description=description,
             level=level,
-            max_attendees=int(max_attendees) if format_choice == "live" else 0,
+            max_attendees=max_attendees if format_choice == "live" else 0,
             format=format_choice,
         )
         db.session.add(offer)
@@ -507,11 +568,11 @@ def manage_lessons(offer_id):
         return redirect(url_for("offer_detail", offer_id=offer.id))
 
     if request.method == "POST":
-        lesson_title = request.form.get("lesson_title", "").strip()
-        video_url = request.form.get("video_url", "").strip()
+        lesson_title = bounded_text(request.form.get("lesson_title"), 150)
+        video_url = bounded_text(request.form.get("video_url"), 300)
 
-        if not lesson_title or not video_url:
-            flash("Lesson title and video link are required.")
+        if not lesson_title or not video_url or not valid_url(video_url):
+            flash("Enter a lesson title and valid HTTP or HTTPS video link.")
             return redirect(url_for("manage_lessons", offer_id=offer.id))
 
         next_order = len(offer.lessons)
@@ -528,10 +589,10 @@ def manage_lessons(offer_id):
 @login_required
 def add_comment(offer_id):
     offer = Offer.query.get_or_404(offer_id)
-    content = request.form.get("content", "").strip()
+    content = bounded_text(request.form.get("content"), 2000)
 
     if not content:
-        flash("Comment can't be empty.")
+        flash("Comment can't be empty or longer than 2,000 characters.")
         return redirect(url_for("offer_detail", offer_id=offer.id))
 
     comment = Comment(offer_id=offer.id, user_id=current_user.id, content=content)
@@ -558,9 +619,9 @@ def cancel_session(session_id):
         return redirect(url_for("offer_detail", offer_id=offer.id))
 
     if request.method == "POST":
-        reason = request.form.get("reason", "").strip()
+        reason = bounded_text(request.form.get("reason"), 1000)
         if not reason:
-            flash("Please provide a reason for cancelling.")
+            flash("Please provide a reason no longer than 1,000 characters.")
             return redirect(url_for("cancel_session", session_id=session.id))
 
         session.status = "cancelled"

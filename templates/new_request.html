@@ -16,6 +16,7 @@
                 {% endwith %}
 
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Skill name</label>
                         <input type="text" name="skill_name" id="skill_name_input" class="form-control" placeholder="e.g. Rubik's Cube, Calculus" required autocomplete="off">

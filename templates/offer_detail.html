@@ -96,6 +96,7 @@
                         {% endif %}
                     {% elif current_user.is_authenticated and current_user.id != offer.teacher_id %}
                         <form method="POST" action="{{ url_for('rsvp_session', session_id=session.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" name="consent" id="consent{{ session.id }}" required>
                                 <label class="form-check-label small" for="consent{{ session.id }}">
@@ -165,6 +166,7 @@
 
 {% if current_user.is_authenticated %}
     <form method="POST" action="{{ url_for('add_comment', offer_id=offer.id) }}" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="input-group">
             <input type="text" name="content" class="form-control" placeholder="Ask a question or share a note..." required>
             <button type="submit" class="btn btn-primary">Post</button>

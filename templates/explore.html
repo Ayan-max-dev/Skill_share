@@ -87,6 +87,7 @@
                                 {% if current_user.is_authenticated %}
                                     {% set my_upvote = req.upvotes | selectattr('user_id', 'equalto', current_user.id) | list %}
                                     <form method="POST" action="{{ url_for('upvote_request', request_id=req.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-sm {{ 'btn-primary' if my_upvote else 'btn-outline-primary' }}" aria-pressed="{{ 'true' if my_upvote else 'false' }}">
                                             ▲ {{ req.upvotes|length }}
                                         </button>
