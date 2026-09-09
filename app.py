@@ -10,6 +10,8 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from models import db, User, Skill, Offer, Request, Session, Enrollment, RequestUpvote, Feedback, Lesson, Comment
 
 from flask import jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 load_dotenv()
@@ -17,6 +19,12 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///skillshare.db"
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-only-for-local-dev")
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[]
+)
 
 db.init_app(app)
 csrf = CSRFProtect(app)
@@ -69,6 +77,7 @@ def home():
     return render_template("index.html")
 
 @app.route("/add-user", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def add_user():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard"))
@@ -96,6 +105,7 @@ def add_user():
     return render_template("add_user.html")
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard"))
@@ -117,6 +127,7 @@ def login():
     return render_template("login.html")
 
 @app.route("/logout")
+@login_required
 def logout():
     logout_user()
     return redirect(url_for("home"))
@@ -140,6 +151,7 @@ def dashboard():
     )
 
 @app.route("/users")
+@login_required
 def view_users():
     all_users = User.query.all()
     return render_template("users.html", users=all_users)
@@ -203,6 +215,7 @@ def explore():
     )
 
 @app.route("/requests/search-similar")
+@login_required
 def search_similar_requests():
     query = bounded_text(request.args.get("q", ""), 100) or ""
     if len(query) < 2:
@@ -350,6 +363,7 @@ def my_profile():
     return redirect(url_for("view_profile", user_id=current_user.id))
 
 @app.route("/profile/<int:user_id>")
+@login_required
 def view_profile(user_id):
     user = User.query.get_or_404(user_id)
     courses_taught = Offer.query.filter_by(teacher_id=user.id).all()
