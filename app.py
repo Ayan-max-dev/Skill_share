@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse
-
+import logging
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_wtf.csrf import CSRFProtect
@@ -17,6 +17,10 @@ from flask_limiter.util import get_remote_address
 load_dotenv()
 
 app = Flask(__name__)
+
+if not app.debug:
+    logging.basicConfig(level=logging.INFO)
+    
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///skillshare.db"
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
@@ -650,6 +654,15 @@ def cancel_session(session_id):
         return redirect(url_for("offer_detail", offer_id=offer.id))
 
     return render_template("cancel_session.html", session=session, offer=offer)
+
+@app.errorhandler(403)
+def forbidden(error):
+    return render_template("403.html"), 403
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return render_template("404.html"), 404
 
 if __name__ == "__main__":
     app.run(debug=False)
