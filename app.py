@@ -18,7 +18,12 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///skillshare.db"
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-only-for-local-dev")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is not set")
+
+app.config["SECRET_KEY"] = SECRET_KEY
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -647,4 +652,4 @@ def cancel_session(session_id):
     return render_template("cancel_session.html", session=session, offer=offer)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
