@@ -1,46 +1,40 @@
-import os
 from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse
 import logging
-from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_wtf.csrf import CSRFProtect
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Skill, Offer, Request, Session, Enrollment, RequestUpvote, Feedback, Lesson, Comment
+from config import Config
 
 from flask import jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-
-load_dotenv()
-
-app = Flask(__name__)
-
-if not app.debug:
-    logging.basicConfig(level=logging.INFO)
-    
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///skillshare.db"
-SECRET_KEY = os.environ.get("SECRET_KEY")
-
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY environment variable is not set")
-
-app.config["SECRET_KEY"] = SECRET_KEY
-
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=[]
-)
-
-db.init_app(app)
-csrf = CSRFProtect(app)
-
+csrf = CSRFProtect()
 login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
+
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+
+    db.init_app(app)
+    csrf.init_app(app)
+    login_manager.init_app(app)
+    limiter.init_app(app)
+
+    login_manager.login_view = "login"
+
+    if not app.debug:
+        logging.basicConfig(level=logging.INFO)
+
+    return app
+
+app = create_app()
 
 ALLOWED_CATEGORIES = {"Academic", "Non-academic"}
 ALLOWED_FORMATS = {"live", "recorded"}
