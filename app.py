@@ -47,6 +47,39 @@ def bounded_text(value, max_length):
     value = (value or "").strip()
     return value if len(value) <= max_length else None
 
+def offer_relevance_score(offer, query):
+    query = query.lower()
+    title = offer.title.lower()
+    description = (offer.description or "").lower()
+    skill_name = offer.skill.name.lower()
+
+    score = 0
+
+    if query == skill_name or query in skill_name:
+        score += 100
+    if title.startswith(query):
+        score += 70
+    elif query in title:
+        score += 40
+    if query in description:
+        score += 15
+
+    return score
+
+def request_relevance_score(req, query):
+    query = query.lower()
+    description = (req.description or "").lower()
+    skill_name = req.skill.name.lower()
+
+    score = 0
+
+    if query == skill_name or query in skill_name:
+        score += 100
+    if query in description:
+        score += 15
+
+    return score
+
 
 def positive_int(value, minimum=1, maximum=50):
     try:
@@ -205,9 +238,15 @@ def explore():
         )
 
     offers = offers_query.all()
-    offers.sort(key=lambda o: o.confirmed_count, reverse=True)
+    if search_query:
+        offers.sort(key=lambda o: offer_relevance_score(o, search_query), reverse=True)
+    else:
+        offers.sort(key=lambda o: o.confirmed_count, reverse=True)
     requests_list = requests_query.all()
-    requests_list.sort(key=lambda r: len(r.upvotes), reverse=True)
+    if search_query:
+        requests_list.sort(key=lambda r: request_relevance_score(r, search_query), reverse=True)
+    else:
+        requests_list.sort(key=lambda r: len(r.upvotes), reverse=True)
 
     return render_template(
         "explore.html",
