@@ -54,6 +54,12 @@
                 <span class="badge bg-{{ 'warning' if req.status == 'open' else 'success' }} mb-2">{{ req.status }}</span>
                 <h6 class="card-title">{{ req.skill.name }}</h6>
                 <p class="text-muted small mb-0">{{ req.description or "No details provided." }}</p>
+                {% if current_user.is_authenticated and current_user.id == req.student_id %}
+                    <form method="POST" action="{{ url_for('delete_request', request_id=req.id) }}" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this request?');">Delete Request</button>
+                    </form>
+                {% endif %}
             </div>
         </div>
     </div>

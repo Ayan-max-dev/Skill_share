@@ -16,7 +16,15 @@
         {% if lessons %}
             <ul class="list-group mb-4">
                 {% for lesson in lessons %}
-                    <li class="list-group-item">Part {{ loop.index }}: {{ lesson.title }}</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Part {{ loop.index }}: {{ lesson.title }}</span>
+                        {% if current_user.is_authenticated and current_user.id == offer.teacher_id %}
+                            <form method="POST" action="{{ url_for('delete_lesson', lesson_id=lesson.id) }}" class="ms-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this lesson?');">Delete Lesson</button>
+                            </form>
+                        {% endif %}
+                    </li>
                 {% endfor %}
             </ul>
         {% else %}

@@ -197,21 +197,24 @@ class Enrollment(db.Model):
     status = db.Column(db.String(20), default="confirmed")  # confirmed / waitlisted
     attended = db.Column(db.Boolean, nullable=True)  # None = not marked yet, True/False once teacher marks it
 
+    __table_args__ = (db.UniqueConstraint("session_id", "student_id", name="unique_session_enrollment"),)
+
     session = db.relationship("Session", backref="enrollments")
     student = db.relationship("User", backref="enrollments")
     
+
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey("session.id"), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)  # 1 = thumbs down, 5 = thumbs up
+    rating = db.Column(db.Integer, nullable=False)  # 1 = lowest rating, 5 = highest rating
     comment = db.Column(db.Text, nullable=True)
 
     __table_args__ = (db.UniqueConstraint("session_id", "student_id", name="unique_session_feedback"),)
 
     session = db.relationship("Session", backref="feedback")
     student = db.relationship("User", backref="feedback_given")
-    
+
     
 class RequestUpvote(db.Model):
     id = db.Column(db.Integer, primary_key=True)

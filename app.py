@@ -2,7 +2,7 @@ from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse
 import logging
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, abort, render_template, request, redirect, url_for, flash
 from flask_wtf.csrf import CSRFProtect
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Skill, Offer, Request, Session, Enrollment, RequestUpvote, Feedback, Lesson, Comment
@@ -11,6 +11,7 @@ from flask_migrate import Migrate
 from flask import jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from sqlalchemy.exc import IntegrityError
 
 csrf = CSRFProtect()
 login_manager = LoginManager()
@@ -281,6 +282,34 @@ def new_request():
 def offer_detail(offer_id):
     offer = Offer.query.get_or_404(offer_id)
     return render_template("offer_detail.html", offer=offer)
+
+@app.route("/offers/<int:offer_id>/delete", methods=["POST"])
+@login_required
+def delete_offer(offer_id):
+    offer = Offer.query.get_or_404(offer_id)
+
+    if current_user.id != offer.teacher_id:
+        abort(403)
+
+    if offer.sessions:
+        flash("Offers with session history cannot be deleted.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+
+    try:
+        for lesson in offer.lessons:
+            db.session.delete(lesson)
+        for comment in offer.comments:
+            db.session.delete(comment)
+        db.session.delete(offer)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("This offer could not be deleted safely.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
+
+    flash("Offer deleted.")
+    return redirect(url_for("explore"))
+
 @app.route("/offers/<int:offer_id>/schedule", methods=["GET", "POST"])
 @login_required
 @require_complete_profile
@@ -350,9 +379,20 @@ def rsvp_session(session_id):
     confirmed_count = Enrollment.query.filter_by(session_id=session.id, status="confirmed").count()
     status = "confirmed" if confirmed_count < offer.max_attendees else "waitlisted"
 
-    enrollment = Enrollment(session_id=session.id, student_id=current_user.id, status=status)
+    enrollment = Enrollment(
+        session_id=session.id,
+        student_id=current_user.id,
+        status=status
+    )
+
     db.session.add(enrollment)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("You've already RSVP'd to this session.")
+        return redirect(url_for("offer_detail", offer_id=offer.id))
 
     if status == "confirmed":
         flash("You're confirmed! Check the session page for the meeting link.")
@@ -413,6 +453,27 @@ def upvote_request(request_id):
         db.session.commit()
         flash("Upvoted!")
 
+    return redirect(url_for("explore"))
+
+@app.route("/requests/<int:request_id>/delete", methods=["POST"])
+@login_required
+def delete_request(request_id):
+    learning_request = Request.query.get_or_404(request_id)
+
+    if current_user.id != learning_request.student_id:
+        abort(403)
+
+    try:
+        for upvote in learning_request.upvotes:
+            db.session.delete(upvote)
+        db.session.delete(learning_request)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("This request could not be deleted safely.")
+        return redirect(url_for("explore"))
+
+    flash("Request deleted.")
     return redirect(url_for("explore"))
 
 @app.route("/sessions/<int:session_id>/feedback", methods=["GET", "POST"])
@@ -617,6 +678,46 @@ def add_comment(offer_id):
     db.session.add(comment)
     db.session.commit()
     return redirect(url_for("offer_detail", offer_id=offer.id))
+
+@app.route("/comments/<int:comment_id>/delete", methods=["POST"])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+
+    if current_user.id != comment.user_id:
+        abort(403)
+
+    offer_id = comment.offer_id
+    try:
+        db.session.delete(comment)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("This comment could not be deleted safely.")
+        return redirect(url_for("offer_detail", offer_id=offer_id))
+
+    flash("Comment deleted.")
+    return redirect(url_for("offer_detail", offer_id=offer_id))
+
+@app.route("/lessons/<int:lesson_id>/delete", methods=["POST"])
+@login_required
+def delete_lesson(lesson_id):
+    lesson = Lesson.query.get_or_404(lesson_id)
+    offer = lesson.offer
+
+    if current_user.id != offer.teacher_id:
+        abort(403)
+
+    try:
+        db.session.delete(lesson)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("This lesson could not be deleted safely.")
+        return redirect(url_for("manage_lessons", offer_id=offer.id))
+
+    flash("Lesson deleted.")
+    return redirect(url_for("manage_lessons", offer_id=offer.id))
 
 @app.route("/sessions/<int:session_id>/cancel", methods=["GET", "POST"])
 @login_required
