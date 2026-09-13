@@ -65,7 +65,7 @@ def delete_offer(offer_id):
         return redirect(url_for("offers.offer_detail", offer_id=offer.id))
 
     flash("Offer deleted.")
-    return redirect(url_for("explore"))
+    return redirect(url_for("main.explore"))
 
 
 @offers_bp.route("/offers/new", methods=["GET", "POST"])
@@ -117,7 +117,7 @@ def new_offer():
 
         if format_choice == "recorded":
             return redirect(url_for("offers.manage_lessons", offer_id=offer.id))
-        return redirect(url_for("explore"))
+        return redirect(url_for("main.explore"))
 
     return render_template("new_offer.html", fulfilling_request=fulfilling_request, offer_format=offer_format)
 

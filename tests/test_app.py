@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from app import app
+from app import app, create_app
 from models import (
     db,
     User,
@@ -23,19 +23,17 @@ from models import (
 
 @pytest.fixture
 def client():
-    app.config.update(
-        TESTING=True,
-        WTF_CSRF_ENABLED=False,
-        RATELIMIT_ENABLED=False,
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SECRET_KEY="test-secret-key"
-    )
+    test_app = create_app({
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
+        "RATELIMIT_ENABLED": False,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SECRET_KEY": "test-secret-key",
+    })
 
-    with app.app_context():
+    with test_app.app_context():
         db.create_all()
-
-        yield app.test_client()
-
+        yield test_app.test_client()
         db.session.remove()
         db.drop_all()
 
@@ -423,7 +421,7 @@ def test_unauthenticated_delete_routes_require_login(client, path):
 def test_delete_routes_require_csrf_when_enabled(client):
     teacher = _create_user("Teacher", "teacher@example.com")
     offer, _ = _create_offer(teacher)
-    app.config["WTF_CSRF_ENABLED"] = True
+    client.application.config["WTF_CSRF_ENABLED"] = True
     with client.session_transaction() as session:
         session["_user_id"] = str(teacher.id)
         session["_fresh"] = True
@@ -433,46 +431,46 @@ def test_delete_routes_require_csrf_when_enabled(client):
     assert response.status_code == 400
     assert db.session.get(Offer, offer.id) is not None
 
-    def test_duplicate_upvote_rejected(client):
-        user = User(
-            name="Student",
-            email="student@example.com"
-        )
-        user.set_password("TestPassword123")
+def test_duplicate_upvote_rejected(client):
+    user = User(
+        name="Student",
+        email="student@example.com"
+    )
+    user.set_password("TestPassword123")
 
-        skill = Skill(
-            name="Python",
-            category="Technology"
-        )
+    skill = Skill(
+        name="Python",
+        category="Technology"
+    )
 
-        db.session.add_all([user, skill])
+    db.session.add_all([user, skill])
+    db.session.commit()
+
+    request = Request(
+        student_id=user.id,
+        skill_id=skill.id,
+        description="I want to learn Python"
+    )
+
+    db.session.add(request)
+    db.session.commit()
+
+    upvote1 = RequestUpvote(
+        request_id=request.id,
+        user_id=user.id
+    )
+
+    db.session.add(upvote1)
+    db.session.commit()
+
+    upvote2 = RequestUpvote(
+        request_id=request.id,
+        user_id=user.id
+    )
+
+    db.session.add(upvote2)
+
+    with pytest.raises(Exception):
         db.session.commit()
 
-        request = Request(
-            student_id=user.id,
-            skill_id=skill.id,
-            description="I want to learn Python"
-        )
-
-        db.session.add(request)
-        db.session.commit()
-
-        upvote1 = RequestUpvote(
-            request_id=request.id,
-            user_id=user.id
-        )
-
-        db.session.add(upvote1)
-        db.session.commit()
-
-        upvote2 = RequestUpvote(
-            request_id=request.id,
-            user_id=user.id
-        )
-
-        db.session.add(upvote2)
-
-        with pytest.raises(Exception):
-            db.session.commit()
-
-        db.session.rollback()
+    db.session.rollback()

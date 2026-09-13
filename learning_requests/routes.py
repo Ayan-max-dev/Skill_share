@@ -71,7 +71,7 @@ def new_request():
         db.session.add(new_learning_request)
         db.session.commit()
         flash("Your request has been posted!")
-        return redirect(url_for("explore"))
+        return redirect(url_for("main.explore"))
 
     return render_template("new_request.html")
 
@@ -83,7 +83,7 @@ def upvote_request(request_id):
 
     if learning_request.student_id == current_user.id:
         flash("You can't upvote your own request.")
-        return redirect(url_for("explore"))
+        return redirect(url_for("main.explore"))
 
     existing = RequestUpvote.query.filter_by(
         request_id=learning_request.id,
@@ -103,7 +103,7 @@ def upvote_request(request_id):
         db.session.commit()
         flash("Upvoted!")
 
-    return redirect(url_for("explore"))
+    return redirect(url_for("main.explore"))
 
 
 @requests_bp.route("/requests/<int:request_id>/delete", methods=["POST"])
@@ -122,7 +122,7 @@ def delete_request(request_id):
     except IntegrityError:
         db.session.rollback()
         flash("This request could not be deleted safely.")
-        return redirect(url_for("explore"))
+        return redirect(url_for("main.explore"))
 
     flash("Request deleted.")
-    return redirect(url_for("explore"))
+    return redirect(url_for("main.explore"))

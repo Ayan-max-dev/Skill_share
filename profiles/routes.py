@@ -42,5 +42,5 @@ def edit_profile():
         current_user.courses_completed = courses_completed
         db.session.commit()
         flash("Profile updated!")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
     return render_template("edit_profile.html")

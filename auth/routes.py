@@ -16,7 +16,7 @@ def bounded_text(value, max_length):
 @auth_bp.route("/")
 def home():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
     return render_template("index.html")
 
 
@@ -24,7 +24,7 @@ def home():
 @limiter.limit("10 per minute")
 def add_user():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
 
     if request.method == "POST":
         name = bounded_text(request.form.get("name"), 100)
@@ -44,7 +44,7 @@ def add_user():
         db.session.add(new_user)
         db.session.commit()
         login_user(new_user)
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
 
     return render_template("add_user.html")
 
@@ -53,7 +53,7 @@ def add_user():
 @limiter.limit("10 per minute")
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
 
     if request.method == "POST":
         email = bounded_text(request.form.get("email"), 120)
@@ -65,7 +65,7 @@ def login():
 
         if user and user.check_password(password):
             login_user(user)
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("main.dashboard"))
         flash("Invalid email or password.")
         return redirect(url_for("auth.login"))
 
