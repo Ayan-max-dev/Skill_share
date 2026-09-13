@@ -1,7 +1,7 @@
-from flask import Blueprint, app, render_template, request
+from flask import Blueprint, render_template, request
 from flask_login import login_required, current_user
 from sqlalchemy.orm import selectinload
-from models import Offer, Request, Enrollment, Skill, User, db
+from models import Offer, Request, Enrollment, Skill, User, Session, db
 
 main_bp = Blueprint("main", __name__)
 
@@ -87,9 +87,27 @@ def explore():
     if level_filter not in ALLOWED_LEVELS:
         level_filter = None
 
-    offers_query = Offer.query.join(Skill).filter(Offer.status == "open")
-    requests_query = Request.query.join(Skill).filter(Request.status == "open")
+    offers_query = (
+        Offer.query
+        .join(Skill)
+        .filter(Offer.status == "open")
+        .options(
+            selectinload(Offer.sessions).selectinload(Session.enrollments),
+            selectinload(Offer.sessions).selectinload(Session.feedback),
+            selectinload(Offer.skill),
+        )
+    )
 
+    requests_query = (
+        Request.query
+        .join(Skill)
+        .filter(Request.status == "open")
+        .options(
+            selectinload(Request.upvotes),
+            selectinload(Request.skill)
+        )
+    )
+    
     if category in ("Academic", "Non-academic"):
         offers_query = offers_query.filter(Skill.category == category)
         requests_query = requests_query.filter(Skill.category == category)
