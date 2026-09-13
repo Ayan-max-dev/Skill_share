@@ -22,7 +22,7 @@
                         <textarea name="reason" class="form-control" rows="3" placeholder="Let attendees know why (e.g. illness, scheduling conflict)" required></textarea>
                     </div>
                     <button type="submit" class="btn btn-danger w-100">Confirm Cancellation</button>
-                    <a href="{{ url_for('offer_detail', offer_id=offer.id) }}" class="btn btn-outline-secondary w-100 mt-2">Never mind, go back</a>
+                    <a href="{{ url_for('offers.offer_detail', offer_id=offer.id) }}" class="btn btn-outline-secondary w-100 mt-2">Never mind, go back</a>
                 </form>
             </div>
         </div>
