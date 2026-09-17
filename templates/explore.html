@@ -56,7 +56,13 @@
                     <div class="card h-100 shadow-sm">
                         <div class="card-body">
                             <span class="badge bg-secondary mb-2">{{ offer.skill.category }}</span>
-                            <span class="badge bg-{{ 'info' if offer.format == 'recorded' else 'primary' }} mb-2">{{ 'On-Demand' if offer.format == 'recorded' else 'Live' }}</span>
+                            <span class="badge bg-{{ 'info' if offer.format == 'recorded' else 'primary' }} mb-2">
+                                {% if offer.format == 'recorded' %}
+                                    🎥 {{ offer.lessons|length }} lesson{{ '' if offer.lessons|length == 1 else 's' }} available
+                                {% else %}
+                                    🟢 Live
+                                {% endif %}
+                            </span>
                             <h5 class="card-title"><a href="{{ url_for('offers.offer_detail', offer_id=offer.id) }}">{{ offer.title }}</a></h5>
                             <p class="text-muted small mb-1">{{ offer.skill.name }} · {{ offer.level }}</p>
                             <p class="card-text">{{ offer.description or "No description provided." }}</p>

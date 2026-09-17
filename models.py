@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import func
 
 db = SQLAlchemy()
 
@@ -24,25 +25,63 @@ class User(UserMixin, db.Model):
     def profile_complete(self):
         return bool(self.grade and self.courses_completed)
 
+    def _no_pending_attendance(self, session_ref):
+        """Subquery: True if no enrollment on this session still has attended=None."""
+        return ~db.session.query(Enrollment.id).filter(
+            Enrollment.session_id == session_ref.id,
+            Enrollment.attended.is_(None)
+        ).exists()
+    @property
+    def sessions_taught_count(self):
+        return (
+            db.session.query(Session)
+            .join(Offer, Session.offer_id == Offer.id)
+            .filter(
+                Offer.teacher_id == self.id,
+                Session.status != "cancelled",
+                Session.end_time < datetime.now(),
+
+                # The session must have at least one confirmed student.
+                db.session.query(Enrollment.id)
+                .filter(
+                    Enrollment.session_id == Session.id,
+                    Enrollment.status == "confirmed"
+                )
+                .exists(),
+
+                # Every confirmed student's attendance must be marked.
+                ~db.session.query(Enrollment.id)
+                .filter(
+                    Enrollment.session_id == Session.id,
+                    Enrollment.status == "confirmed",
+                    Enrollment.attended.is_(None)
+                )
+                .exists(),
+            )
+            .count()
+        )
+
     @property
     def average_teaching_rating(self):
-        all_feedback = [
-            feedback
-            for offer in self.offers
-            for session in offer.sessions
-            for feedback in session.feedback
-        ]
-        if not all_feedback:
-            return None
-        return round(sum(feedback.rating for feedback in all_feedback) / len(all_feedback), 1)
+        result = (
+            db.session.query(func.avg(Feedback.rating))
+            .join(Session, Feedback.session_id == Session.id)
+            .join(Offer, Session.offer_id == Offer.id)
+            .filter(Offer.teacher_id == self.id)
+            .scalar()
+        )
+        return round(result, 1) if result is not None else None
 
     @property
     def total_ratings_count(self):
-        return sum(
-            len(session.feedback)
-            for offer in self.offers
-            for session in offer.sessions
+        return (
+            db.session.query(Feedback)
+            .join(Session, Feedback.session_id == Session.id)
+            .join(Offer, Session.offer_id == Offer.id)
+            .filter(Offer.teacher_id == self.id)
+            .count()
         )
+
     @property
     def no_show_count(self):
         return Enrollment.query.filter_by(student_id=self.id, attended=False).count()
@@ -50,7 +89,7 @@ class User(UserMixin, db.Model):
     @property
     def attended_count(self):
         return Enrollment.query.filter_by(student_id=self.id, attended=True).count()
-    
+
     @property
     def skills_learned(self):
         confirmed_enrollments = Enrollment.query.filter_by(
@@ -65,14 +104,44 @@ class User(UserMixin, db.Model):
         return list(seen.values())
     
     @property
-    def sessions_taught_count(self):
-        return sum(
-            1
-            for offer in self.offers
-            for session in offer.sessions
-            if any(e.status == "confirmed" and e.attended for e in session.enrollments)
+    def skills_taught(self):
+        """Distinct skills from offers that have at least one taught session."""
+        offers_with_taught_session = (
+            db.session.query(Offer)
+            .join(Session, Session.offer_id == Offer.id)
+            .filter(
+                Offer.teacher_id == self.id,
+                Session.status != "cancelled",
+                Session.end_time < datetime.now(),
+
+                # The session must have at least one confirmed student.
+                db.session.query(Enrollment.id)
+                .filter(
+                    Enrollment.session_id == Session.id,
+                    Enrollment.status == "confirmed"
+                )
+                .exists(),
+
+                # Attendance must be marked for every confirmed student.
+                ~db.session.query(Enrollment.id)
+                .filter(
+                    Enrollment.session_id == Session.id,
+                    Enrollment.status == "confirmed",
+                    Enrollment.attended.is_(None)
+                ).exists(),
+            )
+            .distinct()
         )
 
+        seen = {}
+        for offer in offers_with_taught_session:
+            if offer.skill.name not in seen:
+                seen[offer.skill.name] = {
+                    "skill": offer.skill.name,
+                    "offer_title": offer.title
+                }
+
+        return list(seen.values())
     @property
     def teaching_badges(self):
         count = self.sessions_taught_count
@@ -88,7 +157,8 @@ class User(UserMixin, db.Model):
     @property
     def learner_badges(self):
         return [f"Completed: {entry['skill']}" for entry in self.skills_learned]
-    
+
+
 class Skill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)

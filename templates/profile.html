@@ -1,67 +1,132 @@
 {% extends "base.html" %}
-{% block title %}{{ profile_user.name }} — SkillShare{% endblock %}
+{% block title %}{{ profile_user.name }} — SkillSync{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-7">
+    <div class="col-md-8">
+
         <div class="card shadow-sm mt-4">
             <div class="card-body p-4">
-                <h3 class="fw-bold mb-1">{{ profile_user.name }}</h3>
-                <p class="text-muted">{{ profile_user.grade or "Grade not set" }}</p>
 
-                {% if profile_user.average_teaching_rating %}
-                    <p class="mb-3">
-                        <span class="text-warning">★</span>
-                        <strong>{{ profile_user.average_teaching_rating }}</strong>
-                        <span class="text-muted small">({{ profile_user.total_ratings_count }} rating{{ '' if profile_user.total_ratings_count == 1 else 's' }})</span>
-                    </p>
-                {% endif %}
-                {% if profile_user.attended_count or profile_user.no_show_count %}
-                    <p class="text-muted small">
-                        Attendance: {{ profile_user.attended_count }} attended
-                        {% if profile_user.no_show_count %}
-                            · {{ profile_user.no_show_count }} no-show{{ '' if profile_user.no_show_count == 1 else 's' }}
-                        {% endif %}
-                    </p>
-                {% endif %}
-                {% if current_user.is_authenticated and current_user.id == profile_user.id %}
-                    <a href="{{ url_for('profiles.edit_profile') }}" class="btn btn-sm btn-outline-primary mb-3">Edit Profile</a>
-                {% endif %}
+                <!-- Profile Header -->
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="fw-bold mb-1">{{ profile_user.name }}</h3>
+                        <p class="text-muted mb-3">
+                            {{ profile_user.grade or "Grade not set" }}
+                        </p>
+                    </div>
 
-                <p>{{ profile_user.bio or "No bio yet." }}</p>
-                {% set all_badges = profile_user.teaching_badges + profile_user.learner_badges %}
-                {% if all_badges %}
-                    <div class="mb-3">
-                        {% for badge in all_badges %}
-                            <span class="badge bg-{{ 'success' if 'Completed' in badge else 'primary' }} me-1 mb-1">🏅 {{ badge }}</span>
+                    {% if current_user.is_authenticated and current_user.id == profile_user.id %}
+                        <a href="{{ url_for('profiles.edit_profile') }}"
+                           class="btn btn-sm btn-outline-primary">
+                            Edit Profile
+                        </a>
+                    {% endif %}
+                </div>
+
+                <!-- Reputation -->
+                <h5 class="fw-bold mt-3 mb-3">Teaching Reputation</h5>
+
+                <div class="row g-3 mb-4">
+
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center h-100">
+                            <div class="fs-4">
+                                {% if profile_user.average_teaching_rating %}
+                                    <span class="text-warning">★</span>
+                                    <strong>{{ profile_user.average_teaching_rating }}</strong>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted small">Average Rating</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center h-100">
+                            <div class="fs-4 fw-bold">
+                                {{ profile_user.sessions_taught_count }}
+                            </div>
+                            <div class="text-muted small">Sessions Taught</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center h-100">
+                            <div class="fs-4 fw-bold">
+                                {{ profile_user.teaching_badges|length }}
+                            </div>
+                            <div class="text-muted small">Teaching Badges</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Bio -->
+                <h5 class="fw-bold">About</h5>
+                <p class="mb-4">
+                    {{ profile_user.bio or "No bio yet." }}
+                </p>
+
+                <!-- Teaching Badges -->
+                {% if profile_user.teaching_badges %}
+                    <h5 class="fw-bold">Teaching Badges</h5>
+
+                    <div class="mb-4">
+                        {% for badge in profile_user.teaching_badges %}
+                            <span class="badge bg-primary me-1 mb-1">
+                                🏅 {{ badge }}
+                            </span>
                         {% endfor %}
                     </div>
                 {% endif %}
-                <h6 class="fw-bold mt-4">Courses Completed</h6>
-                <p class="text-muted">{{ profile_user.courses_completed or "Not listed." }}</p>
 
-                <h6 class="fw-bold mt-4">Courses Taught</h6>
-                {% if courses_taught %}
-                    <ul class="list-unstyled">
-                        {% for offer in courses_taught %}
-                            <li><a href="{{ url_for('offers.offer_detail', offer_id=offer.id) }}">{{ offer.title }}</a> — {{ offer.skill.name }}</li>
+                <!-- Skills Taught -->
+                <h5 class="fw-bold mt-4">Skills Taught</h5>
+
+                {% if profile_user.skills_taught %}
+                    <div class="mb-4">
+                        {% for entry in profile_user.skills_taught %}
+                            <div class="border rounded p-3 mb-2">
+                                <strong>{{ entry.skill }}</strong>
+                                <div class="text-muted small">
+                                    {{ entry.offer_title }}
+                                </div>
+                            </div>
                         {% endfor %}
-                    </ul>
+                    </div>
                 {% else %}
-                    <p class="text-muted">Hasn't taught anything yet.</p>
+                    <p class="text-muted">
+                        Hasn't taught any completed sessions yet.
+                    </p>
                 {% endif %}
-                <h6 class="fw-bold mt-4">Skills Learned</h6>
+
+                <!-- Skills Learned -->
+                <h5 class="fw-bold mt-4">Skills Learned</h5>
+
                 {% if profile_user.skills_learned %}
-                    <ul class="list-unstyled">
+                    <div class="mb-3">
                         {% for entry in profile_user.skills_learned %}
-                            <li>{{ entry.skill }} <span class="text-muted small">— from "{{ entry.offer_title }}", {{ entry.date.strftime('%b %Y') }}</span></li>
+                            <div class="border rounded p-3 mb-2">
+                                <strong>{{ entry.skill }}</strong>
+                                <div class="text-muted small">
+                                    From "{{ entry.offer_title }}"
+                                    · {{ entry.date.strftime('%b %Y') }}
+                                </div>
+                            </div>
                         {% endfor %}
-                    </ul>
+                    </div>
                 {% else %}
-                    <p class="text-muted">Hasn't attended any sessions yet.</p>
+                    <p class="text-muted">
+                        Hasn't attended any sessions yet.
+                    </p>
                 {% endif %}
+
             </div>
         </div>
+
     </div>
 </div>
 {% endblock %}

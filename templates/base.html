@@ -1,36 +1,290 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SkillShare{% endblock %}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}SkillSync{% endblock %}</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --ink: #1B2A4A;
+            --ink-soft: #2D3F63;
+            --amber: #E8A33D;
+            --paper: #F6F7F5;
+            --slate: #5B6472;
+            --hairline: #DEE1E6;
+
+            --bs-primary: var(--ink);
+            --bs-primary-rgb: 27, 42, 74;
+            --bs-body-font-family: "Work Sans", system-ui, sans-serif;
+            --bs-body-color: #2A2E35;
+            --bs-body-bg: var(--paper);
+            --bs-border-color: var(--hairline);
+            --bs-link-color: var(--ink);
+            --bs-link-hover-color: var(--amber);
+        }
+
+        h1, h2, h3, h4, .brand-mark {
+            font-family: "Source Serif 4", Georgia, serif;
+        }
+
+        body {
+            background: var(--paper);
+        }
+
+        /* Skip link for keyboard/screen-reader users */
+        .skip-link {
+            position: absolute;
+            left: -999px;
+            top: 0;
+            background: var(--ink);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            z-index: 2000;
+        }
+
+        .skip-link:focus {
+            left: 0.5rem;
+            top: 0.5rem;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: var(--ink);
+        }
+
+        .navbar .brand-mark {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #fff;
+            text-decoration: none;
+            letter-spacing: 0.01em;
+        }
+
+        .navbar .brand-mark .accent {
+            color: var(--amber);
+        }
+
+        .navbar .nav-link {
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 500;
+        }
+
+        .navbar .nav-link:hover,
+        .navbar .nav-link:focus {
+            color: #fff;
+        }
+
+        .navbar .nav-link.active {
+            color: var(--amber);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--ink);
+            border-color: var(--ink);
+        }
+
+        .btn-primary:hover,
+        .btn-primary:focus {
+            background-color: var(--ink-soft);
+            border-color: var(--ink-soft);
+        }
+
+        .btn-outline-primary {
+            color: var(--ink);
+            border-color: var(--ink);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--ink);
+            border-color: var(--ink);
+        }
+
+        /* Links */
+        a {
+            color: var(--ink);
+        }
+
+        a:hover {
+            color: var(--amber);
+        }
+
+        /* Cards */
+        .card {
+            border-color: var(--hairline);
+        }
+
+        /* Badges */
+        .badge.text-bg-warning {
+            background-color: var(--amber) !important;
+            color: var(--ink) !important;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--hairline);
+            color: var(--slate);
+            font-size: 0.9rem;
+        }
+
+        /* Visible keyboard focus */
+        a:focus-visible,
+        button:focus-visible,
+        input:focus-visible,
+        textarea:focus-visible,
+        select:focus-visible {
+            outline: 2px solid var(--amber);
+            outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+
+    {% block head %}{% endblock %}
 </head>
+
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color:#3C3489;">
+    <a class="skip-link" href="#main-content">
+        Skip to main content
+    </a>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-md navbar-dark">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="{{ url_for('auth.home') }}">SkillSync</a>
-            <div>
-                <a class="btn btn-outline-light btn-sm" href="{{ url_for('main.explore') }}">Explore</a>
-                {% if current_user.is_authenticated %}
-                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('main.dashboard') }}">Dashboard</a>
-                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('profiles.my_profile') }}">My Profile</a>
-                    <a class="btn btn-light btn-sm" href="{{ url_for('auth.logout') }}">Log Out</a>
-                {% else %}
-                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth.login') }}">Log In</a>
-                    <a class="btn btn-light btn-sm" href="{{ url_for('auth.add_user') }}">Sign Up</a>
-                {% endif %}
+
+            <a class="brand-mark" href="{{ url_for('auth.home') }}">
+                Skill<span class="accent">Sync</span>
+            </a>
+
+            <button class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navMain"
+                    aria-controls="navMain"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navMain">
+
+                <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+
+                    <!-- Available to everyone -->
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           href="{{ url_for('main.explore') }}">
+                            Explore
+                        </a>
+                    </li>
+
+                    {% if current_user.is_authenticated %}
+
+                        <!-- Logged-in navigation -->
+                        <li class="nav-item">
+                            <a class="nav-link"
+                               href="{{ url_for('main.dashboard') }}">
+                                Dashboard
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link"
+                               href="{{ url_for('profiles.my_profile') }}">
+                                My Profile
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="btn btn-sm btn-outline-light"
+                               href="{{ url_for('auth.logout') }}">
+                                Log out
+                            </a>
+                        </li>
+
+                    {% else %}
+
+                        <!-- Logged-out navigation -->
+                        <li class="nav-item">
+                            <a class="nav-link"
+                               href="{{ url_for('auth.login') }}">
+                                Log in
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="btn btn-sm btn-outline-light"
+                               href="{{ url_for('auth.add_user') }}">
+                                Sign up
+                            </a>
+                        </li>
+
+                    {% endif %}
+
+                </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <!-- Main content -->
+    <main id="main-content" class="container py-4">
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+                         role="alert">
+
+                        {{ message }}
+
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert"
+                                aria-label="Close">
+                        </button>
+
+                    </div>
+
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
-    </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 mt-5">
+        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+
+            <span>
+                SkillSync — a peer-to-peer learning platform
+            </span>
+
+            <span>
+                &copy; {{ now().year if now is defined else '' }}
+            </span>
+
+        </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    {% block scripts %}{% endblock %}
+
 </body>
 </html>

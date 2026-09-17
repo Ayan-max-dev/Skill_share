@@ -22,8 +22,7 @@ def my_profile():
 @login_required
 def view_profile(user_id):
     user = User.query.get_or_404(user_id)
-    courses_taught = Offer.query.filter_by(teacher_id=user.id).all()
-    return render_template("profile.html", profile_user=user, courses_taught=courses_taught)
+    return render_template("profile.html", profile_user=user)
 
 
 @profiles_bp.route("/profile/edit", methods=["GET", "POST"])
